@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Course · Page N · Page Title</title>
+<!--
+  learn-by-doing page skeleton
+  ----------------------------
+  How to use: fill in PAGE below (abilities, screens, tasks, capstone, explain-back),
+  then replace the sandbox stub (renderSandbox / readSandbox) with the domain's real
+  sandbox. Everything else (screen navigation, hint ladder, reveal, storage, weak-spot
+  warm-up, review panel) already works and should stay as it is.
+
+  Screen types:
+    { type: "text",    title, body }                       one point per screen
+    { type: "predict", title, prompt, options, answer, verify }   predict → verify
+    { type: "task",    id, ability, title, demo, instructions, check(), hints[3], reveal }
+    { type: "capstone",id, abilities[], title, instructions, check(), reveal }
+    { type: "explain", prompt, reference }
+  Tasks reference abilities by id; the review panel derives ability status from them.
+-->
+<style>
+  :root { --fg:#1a1a1a; --bg:#fafaf7; --muted:#6b6b6b; --line:#ddd; --ok:#1c7c3c; --warn:#b3261e; --accent:#2a5bd7; }
+  * { box-sizing:border-box; }
+  html,body { margin:0; background:var(--bg); color:var(--fg); font:17px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; }
+  body { padding:16px; max-width:720px; margin:0 auto; overflow-x:hidden; }
+  header { display:flex; justify-content:space-between; align-items:center; font-size:14px; color:var(--muted); margin-bottom:12px; }
+  .screen { display:none; }
+  .screen.active { display:block; }
+  h1 { font-size:22px; margin:0 0 8px; }
+  h2 { font-size:19px; margin:0 0 8px; }
+  p { margin:0 0 12px; }
+  button { min-height:44px; min-width:44px; padding:10px 18px; font:inherit; border:1px solid var(--line); border-radius:8px; background:#fff; cursor:pointer; }
+  button.primary { background:var(--accent); color:#fff; border-color:var(--accent); }
+  button:disabled { opacity:.5; cursor:default; }
+  .row { display:flex; flex-wrap:wrap; gap:8px; margin:12px 0; }
+  .options button.chosen { outline:3px solid var(--accent); }
+  .feedback { padding:10px 12px; border-radius:8px; margin:12px 0; border:1px solid var(--line); background:#fff; }
+  .feedback.ok { border-color:var(--ok); color:var(--ok); }
+  .feedback.warn { border-color:var(--warn); }
+  .hint { font-size:15px; color:var(--muted); }
+  textarea { width:100%; min-height:140px; font:inherit; padding:10px; border:1px solid var(--line); border-radius:8px; }
+  .sandbox { border:1px dashed var(--line); border-radius:8px; padding:12px; background:#fff; margin:12px 0; }
+  input[type=range] { width:100%; height:44px; }
+  .tree li { margin:4px 0; }
+  .st-untested { color:var(--muted); } .st-unaided { color:var(--ok); font-weight:600; } .st-revealed { color:#9a6700; } .st-failed { color:var(--warn); }
+  nav.pages { display:flex; justify-content:space-between; margin-top:20px; }
+  progress { width:100%; height:8px; }
+</style>
+</head>
+<body>
+<header>
+  <span id="crumb"></span>
+  <span id="pos"></span>
+</header>
+<progress id="bar" value="0" max="1"></progress>
+<main id="screens"></main>
+
+<script>
+/* =========================== 1. PAGE CONTENT (fill in) =========================== */
+const PAGE = {
+  course: "topic-slug",            // used in storage keys: course:<course>:page:<n>
+  n: 1,
+  totalPages: 4,
+  title: "Page Title",
+  prevHref: null,                  // "page-0.html" or null
+  nextHref: "page-2.html",
+  material: "Describe the running material in one line.",
+  abilities: [
+    { id: "a1", text: "Can [verb-first, verifiable ability]" },
+    { id: "a2", text: "Can [second ability]" },
+  ],
+  screens: [
+    { type: "baseline", title: "Try it first", prompt: "Move the slider until the target reads green.",
+      ability: "a1", check: s => s.value >= 40 && s.value <= 60 },
+    { type: "text", title: "The principle, part 1", body: "One point per screen, tied to the running material." },
+    { type: "text", title: "The principle, part 2", body: "Second point." },
+    { type: "predict", title: "Predict first", prompt: "If X goes up, what happens on the material?",
+      options: ["It gets louder", "It gets quieter", "No change"], answer: 1,
+      verify: "Here is what actually happens, shown on the material: …" },
+    { type: "task", id: "t1", ability: "a1", title: "Task 1",
+      demo: "Watch: the demo state is set to 50.",
+      instructions: "Set the value between 40 and 60.",
+      check: s => s.value >= 40 && s.value <= 60,
+      hints: ["Look at the meter, not the number.", "It is between the two marks.", "Slightly right of the middle."],
+      reveal: "50. Recall: the meter reads the same thing the principle screen showed." },
+    { type: "task", id: "t2", ability: "a2", title: "Task 2 (adds one variable)",
+      demo: "", instructions: "Now also …",
+      check: s => s.value >= 70,
+      hints: ["…", "…", "…"], reveal: "…" },
+    { type: "capstone", id: "cap", abilities: ["a1", "a2"], title: "Capstone",
+      instructions: "Realistic scenario using everything on this page. No hints.",
+      check: s => s.value >= 70, reveal: "…" },
+    { type: "explain", prompt: "Explain what this page taught to someone who has never learned it.",
+      reference: "Reference answer the learner compares against on their own." },
+  ],
+};
+
+/* =========================== 2. SANDBOX STUB (replace) =========================== */
+// Replace with the domain sandbox (Web Audio, SVG chart, …). Contract:
+//   renderSandbox(container, initialState) → mounts UI, returns nothing
+//   readSandbox() → current state object handed to every check()
+let sandboxState = { value: 0 };
+function renderSandbox(el, init = {}) {
+  sandboxState = { value: 0, ...init };
+  el.innerHTML = `<label>Value <output>${sandboxState.value}</output></label>
+    <input type="range" min="0" max="100" value="${sandboxState.value}">`;
+  const r = el.querySelector("input"), o = el.querySelector("output");
+  r.oninput = () => { sandboxState.value = +r.value; o.textContent = r.value; };
+}
+function readSandbox() { return sandboxState; }
+
+/* =========================== 3. STORAGE ADAPTER =========================== */
+const KEY = `course:${PAGE.course}:page:${PAGE.n}`;
+const store = {
+  async get(k) {
+    try {
+      if (window.storage) { const r = await window.storage.get(k); return r ? JSON.parse(r.value) : null; }
+      const v = localStorage.getItem(k); return v ? JSON.parse(v) : null;
+    } catch { return null; }
+  },
+  async set(k, v) {
+    try {
+      if (window.storage) await window.storage.set(k, JSON.stringify(v));
+      else localStorage.setItem(k, JSON.stringify(v));
+    } catch {}
+  },
+};
+// progress shape: { abilities:{id: "untested"|"unaided"|"revealed"|"failed"}, wrong:[taskId], pos:screenIndex, explain:"" }
+let progress;
+async function loadProgress() {
+  progress = (await store.get(KEY)) || { abilities: {}, wrong: [], pos: 0, explain: "" };
+  PAGE.abilities.forEach(a => { progress.abilities[a.id] ??= "untested"; });
+}
+const save = () => store.set(KEY, progress);
+function setAbility(id, status) {
+  const rank = { untested: 0, failed: 1, revealed: 2, unaided: 3 };
+  // an ability keeps its best result; a later reveal does not downgrade an unaided pass
+  if (rank[status] >= rank[progress.abilities[id]] || progress.abilities[id] === "untested") progress.abilities[id] = status;
+  save();
+}
+
+/* =========================== 4. SCREEN ENGINE =========================== */
+const screensEl = document.getElementById("screens");
+let order = [];       // indices into PAGE.screens, after inserting warm-up and review
+let cur = 0;
+
+function buildOrder() {
+  order = PAGE.screens.map((_, i) => i);
+  // Reopening with weak spots: put up to 2 tasks on failed/revealed abilities first.
+  const weak = new Set(Object.entries(progress.abilities).filter(([, s]) => s === "failed" || s === "revealed").map(([id]) => id));
+  if (weak.size && progress.pos > 0) {
+    const warm = PAGE.screens.map((s, i) => [s, i]).filter(([s]) => s.type === "task" && weak.has(s.ability)).slice(0, 2).map(([, i]) => i);
+    order = [...warm, ...order.filter(i => !warm.includes(i))];
+  }
+  // Baseline screens for abilities already passed unaided are skipped, not re-taught.
+  order = order.filter(i => !(PAGE.screens[i].type === "baseline" && progress.abilities[PAGE.screens[i].ability] === "unaided"));
+}
+
+function go(i) {
+  cur = Math.max(0, Math.min(i, order.length)); // order.length == review panel
+  progress.pos = cur; save();
+  render();
+}
+
+function render() {
+  screensEl.innerHTML = "";
+  document.getElementById("crumb").textContent = `Page ${PAGE.n} of ${PAGE.totalPages} · ${PAGE.title}`;
+  document.getElementById("pos").textContent = `${Math.min(cur + 1, order.length + 1)} / ${order.length + 1}`;
+  document.getElementById("bar").value = cur / order.length;
+  const el = document.createElement("section"); el.className = "screen active"; screensEl.appendChild(el);
+  if (cur >= order.length) return renderReview(el);
+  const s = PAGE.screens[order[cur]];
+  ({ text: renderText, baseline: renderTask, predict: renderPredict, task: renderTask, capstone: renderTask, explain: renderExplain })[s.type](el, s);
+}
+
+const navButtons = (el, { back = true, next = "Next", onNext = () => go(cur + 1), disabled = false } = {}) => {
+  const row = document.createElement("div"); row.className = "row";
+  if (back && cur > 0) { const b = document.createElement("button"); b.textContent = "Back"; b.onclick = () => go(cur - 1); row.appendChild(b); }
+  const n = document.createElement("button"); n.className = "primary"; n.textContent = next; n.disabled = disabled; n.onclick = onNext; row.appendChild(n);
+  el.appendChild(row); return n;
+};
+
+function renderText(el, s) {
+  el.innerHTML = `<h2>${s.title}</h2><p>${s.body}</p>`;
+  navButtons(el);
+}
+
+function renderPredict(el, s) {
+  el.innerHTML = `<h2>${s.title}</h2><p>${s.prompt}</p><div class="row options"></div><div class="feedback" hidden></div>`;
+  const opts = el.querySelector(".options"), fb = el.querySelector(".feedback");
+  let chosen = null;
+  s.options.forEach((o, i) => {
+    const b = document.createElement("button"); b.textContent = o;
+    b.onclick = () => { chosen = i; [...opts.children].forEach(c => c.classList.remove("chosen")); b.classList.add("chosen"); commit.disabled = false; };
+    opts.appendChild(b);
+  });
+  const commit = navButtons(el, { next: "Commit and see what happens", disabled: true, onNext: () => {
+    // the real result is shown only after the learner commits
+    fb.hidden = false;
+    fb.className = "feedback " + (chosen === s.answer ? "ok" : "warn");
+    fb.innerHTML = `<p><strong>${chosen === s.answer ? "Your prediction matched." : `You predicted "${s.options[chosen]}"; the material shows "${s.options[s.answer]}".`}</strong></p><p>${s.verify}</p>`;
+    commit.textContent = "Next"; commit.onclick = () => go(cur + 1);
+  }});
+}
+
+function renderTask(el, s) {
+  const isCap = s.type === "capstone", isBase = s.type === "baseline";
+  el.innerHTML = `<h2>${s.title}</h2>${s.demo ? `<p class="hint">${s.demo}</p>` : ""}<p>${s.instructions || s.prompt}</p><div class="sandbox"></div><div class="feedback" hidden></div>`;
+  renderSandbox(el.querySelector(".sandbox"), s.init);
+  const fb = el.querySelector(".feedback");
+  let misses = 0;
+  const abilities = isCap ? s.abilities : [s.ability];
+  const pass = (how) => {
+    abilities.forEach(a => setAbility(a, how));
+    fb.hidden = false; fb.className = "feedback ok";
+    fb.textContent = how === "unaided" ? "Passed." : "Revealed: " + s.reveal;
+    check.textContent = "Next"; check.onclick = () => go(cur + 1);
+  };
+  const check = navButtons(el, { next: "Check", onNext: () => {
+    if (s.check(readSandbox())) return pass("unaided");
+    misses++;
+    if (!progress.wrong.includes(s.id) && s.id) { progress.wrong.push(s.id); save(); }
+    fb.hidden = false; fb.className = "feedback warn";
+    if (isBase) {
+      // baseline: one miss just means "not yet known"; move on to the principle without teaching here
+      setAbility(s.ability, "failed"); fb.textContent = "Not yet. The next screens explain it.";
+      check.textContent = "Next"; check.onclick = () => go(cur + 1); return;
+    }
+    if (isCap) {
+      // capstone has no hints: three misses = failed, then reveal so nothing dead-ends
+      if (misses < 3) fb.textContent = `Not yet (${misses}/3). No hints on the capstone. Try again.`;
+      else { abilities.forEach(a => setAbility(a, "failed")); pass("revealed"); }
+      return;
+    }
+    if (misses <= 3) fb.innerHTML = `<strong>Hint ${misses}:</strong> ${s.hints[misses - 1]}`;
+    else pass("revealed"); // hint 1 → 2 → 3 → reveal; never stuck
+  }});
+}
+
+function renderExplain(el, s) {
+  el.innerHTML = `<h2>Explain it back</h2><p>${s.prompt}</p><textarea placeholder="Write it in your own words…">${progress.explain || ""}</textarea><div class="feedback" hidden></div>`;
+  const ta = el.querySelector("textarea"), fb = el.querySelector(".feedback");
+  ta.oninput = () => { progress.explain = ta.value; save(); };
+  const btn = navButtons(el, { next: "Save and show the reference answer", onNext: () => {
+    // stored, not graded: the learner compares on their own
+    fb.hidden = false; fb.className = "feedback";
+    fb.innerHTML = `<p><strong>Reference answer</strong></p><p>${s.reference}</p><p class="hint">Compare it with what you wrote. Yours is saved.</p>`;
+    btn.textContent = "Review panel"; btn.onclick = () => go(cur + 1);
+  }});
+}
+
+async function renderReview(el) {
+  const label = { untested: "untested", unaided: "passed unaided", revealed: "passed via reveal", failed: "failed" };
+  el.innerHTML = `<h2>Review</h2><p class="hint">${PAGE.material}</p><ul class="tree">${PAGE.abilities.map(a =>
+    `<li class="st-${progress.abilities[a.id]}">${a.text} — ${label[progress.abilities[a.id]]}</li>`).join("")}</ul>
+    <p>Course position: page ${PAGE.n} of ${PAGE.totalPages}.</p><ul class="tree" id="others"></ul>`;
+  // cross-page progress: same key prefix lets this panel read every page's abilities
+  const others = el.querySelector("#others");
+  for (let p = 1; p <= PAGE.totalPages; p++) {
+    if (p === PAGE.n) continue;
+    const d = await store.get(`course:${PAGE.course}:page:${p}`);
+    const done = d ? Object.values(d.abilities).filter(v => v === "unaided" || v === "revealed").length : 0;
+    others.insertAdjacentHTML("beforeend", `<li class="hint">Page ${p}: ${d ? `${done}/${Object.keys(d.abilities).length} abilities passed` : "not started"}</li>`);
+  }
+  const nav = document.createElement("nav"); nav.className = "pages";
+  nav.innerHTML = `${PAGE.prevHref ? `<a href="${PAGE.prevHref}"><button>← Previous page</button></a>` : "<span></span>"}
+    <button onclick="go(0)">Restart this page</button>
+    ${PAGE.nextHref ? `<a href="${PAGE.nextHref}"><button class="primary">Next page →</button></a>` : "<span></span>"}`;
+  el.appendChild(nav);
+}
+
+/* =========================== 5. BOOT =========================== */
+(async () => {
+  await loadProgress();
+  buildOrder();
+  go(progress.pos < order.length ? progress.pos : 0);
+})();
+</script>
+</body>
+</html>
