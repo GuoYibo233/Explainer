@@ -110,7 +110,7 @@ Step up steadily. Between two adjacent tasks add exactly one new variable. No su
 
 The principle comes before the tasks, not after a mistake. After a mistake the page never re-explains the principle; it only gives hints and points back.
 
-`templates/page-skeleton.html` already implements screen navigation, the task state machine, the three-level hint ladder, progress storage and the review panel. Start from it instead of writing from scratch: these mechanics are identical on every page, and rewriting them only introduces inconsistency.
+`templates/page-skeleton.html` already implements screen navigation, the task state machine, the three-level hint ladder, progress storage, the review panel and the visual theme. Start from it instead of writing from scratch: these mechanics are identical on every page, and rewriting them only introduces inconsistency.
 
 ## Step 4: Hard technical rules
 
@@ -122,6 +122,7 @@ The principle comes before the tasks, not after a mistake. After a mistake the p
 - Every check, hint and reveal is hard-coded in the page. No API calls of any kind.
 - Works on mobile: touch targets at least 44px, no horizontal overflow.
 - Examples drawn from the user's own background whenever possible.
+- Visual theme: the Learning Music look defined in `references/theme.md` (dark grey ground, grey panels, white text, Futura-style type with Jost embedded as the fallback, no borders or radii, goldfish yellow for the active state, flat color blocks for feedback). The skeleton ships with it; keep its tokens when adding sandbox UI, and read the reference before writing any CSS of your own.
 
 Page location: `courses/<topic>/page-<n>.html`.
 
